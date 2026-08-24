@@ -1,0 +1,1 @@
+"""Sentinel computer-vision service."""

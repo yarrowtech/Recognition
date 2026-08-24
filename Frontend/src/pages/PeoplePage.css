@@ -1,0 +1,95 @@
+.enrollment-modal {
+  width: min(560px, 100%);
+}
+
+.enrollment-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin-bottom: 14px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: #0a111c;
+}
+
+.enrollment-tabs button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px;
+  border: 0;
+  border-radius: 6px;
+  color: #718096;
+  background: transparent;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.enrollment-tabs button.active {
+  color: #e6eeff;
+  background: #192943;
+}
+
+.enrollment-preview {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border: 1px solid #2a3a50;
+  border-radius: 11px;
+  background: #05080d;
+}
+
+.enrollment-preview video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+.face-guide {
+  position: absolute;
+  inset: 13% 26%;
+  border: 2px solid rgba(117, 153, 255, .9);
+  border-radius: 48% 48% 44% 44%;
+  box-shadow: 0 0 0 999px rgba(2, 5, 10, .28), 0 0 20px rgba(82, 119, 230, .34);
+  pointer-events: none;
+}
+
+.camera-waiting {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #8190a5;
+  font-size: 11px;
+}
+
+.capture-hint {
+  margin: 9px 0 2px !important;
+  text-align: center;
+  color: #748398 !important;
+  font-size: 10px !important;
+}
+
+.modal-error {
+  margin: -7px 0 13px;
+  padding: 9px 11px;
+  border: 1px solid #63303c;
+  border-radius: 7px;
+  color: #ffadb5;
+  background: #311b22;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+@media (max-width: 600px) {
+  .enrollment-modal {
+    padding: 20px;
+  }
+
+  .face-guide {
+    inset: 12% 22%;
+  }
+}

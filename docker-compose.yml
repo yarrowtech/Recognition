@@ -1,0 +1,65 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: sentinel
+      POSTGRES_USER: sentinel
+      POSTGRES_PASSWORD: sentinel
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports: ["5432:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sentinel"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: ./backend
+    environment:
+      PORT: 4000
+      DATABASE_URL: postgresql://sentinel:sentinel@postgres:5432/sentinel
+      REDIS_URL: redis://redis:6379
+      AI_SERVICE_URL: http://ai-service:8000
+      CORS_ORIGIN: http://localhost:5173,http://localhost:8080
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-local-development-token}
+      TRACK_LOST_GRACE_SECONDS: ${TRACK_LOST_GRACE_SECONDS:-7}
+    ports: ["4000:4000"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  ai-service:
+    build: ./ai-service
+    environment:
+      NODE_API_URL: http://api:4000
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-local-development-token}
+      CORS_ORIGIN: http://localhost:5173,http://localhost:8080
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5vl:7b}
+      FACE_MATCH_THRESHOLD: ${FACE_MATCH_THRESHOLD:-0.45}
+      TRACK_LOST_GRACE_SECONDS: ${TRACK_LOST_GRACE_SECONDS:-7}
+    ports: ["8000:8000"]
+    volumes:
+      - insightface_models:/root/.insightface
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on: [api]
+
+  web:
+    build: ./Frontend
+    ports: ["8080:80"]
+    depends_on: [api, ai-service]
+
+volumes:
+  postgres_data:
+  insightface_models:
