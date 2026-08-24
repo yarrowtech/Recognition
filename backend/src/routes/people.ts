@@ -3,16 +3,18 @@ import multer from 'multer';
 import { z } from 'zod';
 import { config } from '../config.js';
 import { pool } from '../db/pool.js';
+import { calibrateFaceThreshold } from '../faceCalibration.js';
 import { anonymizeActivePerson } from '../presenceService.js';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });
+const MAX_FACE_PROFILES = 10;
 const createPerson = z.object({ name: z.string().trim().min(2).max(100), externalId: z.string().trim().max(100).optional() });
 export const peopleRouter = Router();
 
 peopleRouter.get('/', async (_req, res) => {
   const { rows } = await pool.query(
     `SELECT p.id, p.name, p.external_id AS "externalId", p.status, p.created_at AS "createdAt",
-      count(fp.id)::int AS "faceCount", max(s.last_seen_at) AS "lastSeen",
+      count(DISTINCT fp.id)::int AS "faceCount", max(s.last_seen_at) AS "lastSeen",
       count(DISTINCT s.id)::int AS visits
      FROM people p LEFT JOIN face_profiles fp ON fp.person_id=p.id
      LEFT JOIN sessions s ON s.person_id=p.id GROUP BY p.id ORDER BY p.name`,
@@ -28,6 +30,21 @@ peopleRouter.post('/', async (req, res) => {
     [input.name, input.externalId ?? null],
   );
   res.status(201).json({ data: rows[0] });
+});
+
+peopleRouter.get('/calibration', async (_req, res) => {
+  const { rows } = await pool.query<{ personId: string; embedding: Buffer }>(
+    `SELECT person_id AS "personId", embedding FROM face_profiles ORDER BY person_id, created_at`,
+  );
+  const enrollments = rows.map((row) => ({
+    personId: row.personId,
+    embedding: new Float32Array(
+      row.embedding.buffer,
+      row.embedding.byteOffset,
+      row.embedding.byteLength / Float32Array.BYTES_PER_ELEMENT,
+    ).slice(),
+  }));
+  res.json({ data: calibrateFaceThreshold(enrollments) });
 });
 
 peopleRouter.get('/:id', async (req, res) => {
@@ -64,8 +81,15 @@ peopleRouter.delete('/:id', async (req, res) => {
 
 peopleRouter.post('/:id/faces', upload.single('image'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'An image file is required' });
-  const person = await pool.query(`SELECT id FROM people WHERE id=$1`, [req.params.id]);
-  if (!person.rowCount) return res.status(404).json({ error: 'Person not found' });
+  const person = await pool.query<{ id: string; faceCount: number }>(
+    `SELECT p.id, count(fp.id)::int AS "faceCount" FROM people p
+     LEFT JOIN face_profiles fp ON fp.person_id=p.id WHERE p.id=$1 GROUP BY p.id`,
+    [req.params.id],
+  );
+  if (!person.rows[0]) return res.status(404).json({ error: 'Person not found' });
+  if (person.rows[0].faceCount >= MAX_FACE_PROFILES) {
+    return res.status(409).json({ error: `A person can have at most ${MAX_FACE_PROFILES} face profiles` });
+  }
   const body = new FormData();
   const imageBytes = req.file.buffer.buffer.slice(req.file.buffer.byteOffset, req.file.buffer.byteOffset + req.file.buffer.byteLength) as ArrayBuffer;
   body.append('image', new Blob([imageBytes], { type: req.file.mimetype }), req.file.originalname);
@@ -80,7 +104,7 @@ peopleRouter.post('/:id/faces', upload.single('image'), async (req, res) => {
      RETURNING id,person_id AS "personId",model_name AS "modelName",created_at AS "createdAt"`,
     [req.params.id, embedding, result.modelName, result.modelVersion],
   );
-  res.status(201).json({ data: rows[0] });
+  res.status(201).json({ data: { ...rows[0], faceCount: person.rows[0].faceCount + 1, maximumFaceCount: MAX_FACE_PROFILES } });
 });
 
 peopleRouter.delete('/:id/faces/:faceId', async (req, res) => {

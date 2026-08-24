@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Card, CardHeader, EmptyState, ErrorBanner, PageHeader, Status } from '../components/ui'
 import { useRealtime } from '../hooks/useRealtime'
 import { AI_URL, api, formatDuration } from '../lib/api'
+import './LivePage.css'
 
 const TARGET_FPS = Math.max(1, Math.min(30, Number(import.meta.env.VITE_AI_PROCESS_FPS || 24)))
 const FRAME_INTERVAL_MS = 1000 / TARGET_FPS
@@ -76,7 +77,8 @@ export default function LivePage() {
           const known = Boolean(item.personId)
           const color = known ? '#55d99a' : '#f4b860'
           const background = known ? 'rgba(20,92,66,.92)' : 'rgba(108,67,16,.92)'
-          const { x, y, width, height } = item.box
+          const { y, width, height } = item.box
+          const x = canvas.width - item.box.x - width
           ctx.globalAlpha = opacity
           ctx.lineWidth = Math.max(2, canvas.width / 360)
           ctx.strokeStyle = color

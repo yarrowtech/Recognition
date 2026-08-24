@@ -48,10 +48,23 @@ class ProfileIndex:
         if not self.profiles:
             return None, None, 0.0
         normalized = embedding / max(float(np.linalg.norm(embedding)), 1e-9)
-        similarities = np.array([float(np.dot(normalized, profile.embedding)) for profile in self.profiles])
-        index = int(np.argmax(similarities))
-        confidence = float(similarities[index])
-        profile = self.profiles[index]
-        if confidence < settings.face_match_threshold:
-            return None, None, confidence
-        return profile.person_id, profile.name, confidence
+        # Rank identities, not individual enrollment images. Otherwise, several
+        # samples belonging to the winning identity can incorrectly occupy both
+        # first and second place and make the separation check meaningless.
+        best_by_person: dict[str, tuple[Profile, float]] = {}
+        for profile in self.profiles:
+            similarity = float(np.dot(normalized, profile.embedding))
+            current = best_by_person.get(profile.person_id)
+            if current is None or similarity > current[1]:
+                best_by_person[profile.person_id] = (profile, similarity)
+
+        ranked = sorted(best_by_person.values(), key=lambda item: item[1], reverse=True)
+        profile, confidence = ranked[0]
+        runner_up = ranked[1][1] if len(ranked) > 1 else -1.0
+        reported_confidence = max(0.0, min(1.0, confidence))
+        if (
+            confidence < settings.face_match_threshold
+            or confidence - runner_up < settings.face_match_margin
+        ):
+            return None, None, reported_confidence
+        return profile.person_id, profile.name, reported_confidence

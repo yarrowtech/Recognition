@@ -93,15 +93,20 @@ export class PresenceService {
 
   private async update(track: LiveTrack, observation: Observation) {
     const reappeared = track.state === 'lost';
-    const newlyIdentified = !track.personId && Boolean(observation.personId);
+    const previousPersonId = track.personId ?? null;
+    const observedPersonId = observation.personId ?? null;
+    const identityChanged = previousPersonId !== observedPersonId;
+    const newlyIdentified = !previousPersonId && Boolean(observedPersonId);
     track.lastSeenAt = observation.seenAt;
     track.seenAt = observation.seenAt;
     track.state = 'active';
-    if (newlyIdentified) {
-      track.personId = observation.personId;
-      track.label = observation.label;
+    if (identityChanged) {
+      track.personId = observedPersonId;
+      track.label = observedPersonId
+        ? (observation.label ?? 'Known person')
+        : `Unknown #${track.trackId}`;
     }
-    const shouldPersist = observation.seenAt.getTime() - track.persistedAt.getTime() >= 1000 || reappeared || newlyIdentified;
+    const shouldPersist = observation.seenAt.getTime() - track.persistedAt.getTime() >= 1000 || reappeared || identityChanged;
     if (shouldPersist) {
       await pool.query(
         `UPDATE sessions SET last_seen_at=$2, status='active', person_id=$3, label=$4 WHERE id=$1`,
@@ -111,7 +116,12 @@ export class PresenceService {
     }
     if (reappeared) await this.event(track, 'PERSON_REAPPEARED');
     if (newlyIdentified) await this.event(track, 'PERSON_IDENTIFIED', { confidence: observation.confidence });
-    if (shouldPersist) this.hub.broadcast(newlyIdentified ? 'person.recognized' : 'person.updated', this.publicTrack(track));
+    if (previousPersonId && !observedPersonId) {
+      await this.event(track, 'PERSON_IDENTITY_CLEARED', { previousPersonId });
+    } else if (previousPersonId && observedPersonId && previousPersonId !== observedPersonId) {
+      await this.event(track, 'PERSON_IDENTITY_CORRECTED', { previousPersonId, confidence: observation.confidence });
+    }
+    if (shouldPersist) this.hub.broadcast(identityChanged && observedPersonId ? 'person.recognized' : 'person.updated', this.publicTrack(track));
   }
 
   private async sweep() {

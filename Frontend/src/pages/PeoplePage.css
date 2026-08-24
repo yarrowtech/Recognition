@@ -13,6 +13,59 @@
   background: #0a111c;
 }
 
+.enrollment-progress {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 5px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.enrollment-progress span {
+  height: 4px;
+  border-radius: 99px;
+  background: #263244;
+}
+
+.enrollment-progress span.current {
+  background: #7896ed;
+  box-shadow: 0 0 8px rgba(102, 140, 255, .45);
+}
+
+.enrollment-progress span.complete {
+  background: #55d99a;
+}
+
+.enrollment-progress strong {
+  grid-column: 1 / -1;
+  color: #79889d;
+  font-size: 9px;
+  font-weight: 600;
+  text-align: right;
+}
+
+.angle-instruction {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+  padding: 10px 11px;
+  border: 1px solid #26364d;
+  border-radius: 8px;
+  background: #0c1522;
+}
+
+.angle-instruction strong {
+  color: #d9e4f5;
+  font-size: 11px;
+}
+
+.angle-instruction span {
+  color: #76859a;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
 .enrollment-tabs button {
   display: inline-flex;
   align-items: center;
@@ -80,6 +133,17 @@
   border-radius: 7px;
   color: #ffadb5;
   background: #311b22;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.modal-notice {
+  margin: -7px 0 13px;
+  padding: 9px 11px;
+  border: 1px solid #24523f;
+  border-radius: 7px;
+  color: #83e5b5;
+  background: #10271f;
   font-size: 10px;
   line-height: 1.45;
 }
